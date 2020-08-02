@@ -52,6 +52,7 @@ void loop()
             {
                 myserial.println("threshold has been changed as ");
                 myserial.println(value);
+                thres = value;
             }
         }
     }
