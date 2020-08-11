@@ -30,8 +30,8 @@ const int sw = 2;
 //蓝牙模块接线
 //注：这里rx和tx指的是uno的串口，是反的，
 //蓝牙的RX应该连下面的tx，TX应该连下面的rx！！！
-const int rx = 8, tx = 9; 
-
+//const int rx = 8, tx = 9; 
+const int rx = 10,tx = 11;
 
 /////////////////////////////////////////////
 //
