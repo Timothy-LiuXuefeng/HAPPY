@@ -1,6 +1,9 @@
 #include <Servo.h>
 #include <Adafruit_PWMServoDriver.h>
 #include <SoftwareSerial.h>
+#include<DHT.h>
+#include"U8glib.h"
+U8GLIB_SSD1306_128X64 u8g(U8G_I2C_OPT_NONE|U8G_I2C_OPT_DEV_0);
 
 /////////////////////////////////////////////
 //
@@ -32,7 +35,20 @@ const int sw = 2;
 //蓝牙的RX应该连下面的tx，TX应该连下面的rx！！！
 //const int rx = 8, tx = 9; 
 const int rx = 10,tx = 11;
-
+//
+//
+//烟雾传感器
+const int mq2 = A2;
+int smoke_density = 0;
+int threshold = 300;
+//
+//
+//蜂鸣器
+const int buzzer = 3;
+//
+//存储温度、湿度的临时变量
+int temper = 0, humidi = 0;
+char temp_char[10], humi_char[10];
 /////////////////////////////////////////////
 //
 //
@@ -68,40 +84,40 @@ const int rx = 10,tx = 11;
 
 //下面这8个宏代表是否有哪个舵机的安装方向和我写代码默认的方向是反的，如果反了，把对应的宏改成1
 //下面这4个表示控制狗腿水平方向摆动的舵机，默认方向是正方向移动是两条前腿向前，两条后腿向后
-#define RIGHT_FRONT_LEVL_REVERSE 0        //右前腿控制水平移动的，后同
+#define RIGHT_FRONT_LEVL_REVERSE 1        //右前腿控制水平移动的，后同
 #define LEFT_FRONT_LEVL_REVERSE 0
 #define LEFT_BACK_LEVL_REVERSE 0
-#define RIGHT_BACK_LEVL_REVERSE 0
+#define RIGHT_BACK_LEVL_REVERSE 1
 //下面这4个宏表示控制狗腿竖直方向移动的舵机，默认方向是正方向移动狗腿抬起
-#define RIGHT_FRONT_VERT_REVERSE 0        //右前腿控制竖直移动的
+#define RIGHT_FRONT_VERT_REVERSE 1        //右前腿控制竖直移动的
 #define LEFT_FRONT_VERT_REVERSE 0
 #define LEFT_BACK_VERT_REVERSE 0
-#define RIGHT_BACK_VERT_REVERSE 0
+#define RIGHT_BACK_VERT_REVERSE 1
 
 //SERVO_BEG_n表示当狗正常站立时n引脚的参数（数值越大舵机摆动角度越大），须大于零，需要手动调整
-#define SERVO_BEG_0 375
-#define SERVO_BEG_1 375
-#define SERVO_BEG_2 375
-#define SERVO_BEG_3 375
-#define SERVO_BEG_4 400
-#define SERVO_BEG_5 400
-#define SERVO_BEG_6 400
-#define SERVO_BEG_7 400
+#define SERVO_BEG_0 300
+#define SERVO_BEG_1 300
+#define SERVO_BEG_2 300
+#define SERVO_BEG_3 300
+#define SERVO_BEG_4 360
+#define SERVO_BEG_5 280
+#define SERVO_BEG_6 360
+#define SERVO_BEG_7 280
 
 //一条腿移动的时间
 #define ONE_LEG_MOVE_TIME 150
 
 //走路时腿抬起的高度
-#define STEP_HEIGHT 70
+#define STEP_HEIGHT 120
 
 //下蹲的幅度
 #define SIT_DEPTH 100
 
 //走路时一步向前迈的距离
-#define MOVE_DISTANCE 80
+#define MOVE_DISTANCE 140
 
 //走路时每迈一步的间隔时间
-#define STEP_INTERVAL 200
+#define STEP_INTERVAL 500   //origin:200
 
 
 
@@ -111,7 +127,11 @@ const int rx = 10,tx = 11;
 // 以下是常量和全局变量，不能修改
 //
 //
+//dht模块的引脚与型号
+#define DHT_PIN 12
+#define DHT_TYPE DHT11
 
+DHT mydht(DHT_PIN,DHT_TYPE);
 
 // Use default i2c address 0x40
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
@@ -219,6 +239,10 @@ void TurnRight();
 void setup()
 {
   Serial.begin(9600); 
+  pinMode(mq2, INPUT);
+  pinMode(buzzer, OUTPUT);
+  digitalWrite(buzzer,LOW);    //高电平触发buzzer
+  mydht.begin();
   pwm.begin(); 
   pwm.setPWMFreq(PWM_FREQUENCY); 
 
@@ -228,13 +252,29 @@ void setup()
 
   //初始化摇杆
   pinMode(sw, INPUT_PULLUP); 
-
+  u8g.setFont(u8g_font_unifont);
   //初始化蓝牙模块
   sws.begin(9600); 
 }
 
 void loop()
 {
+     u8g.firstPage();
+    do{
+        u8g.drawStr(0,12,"Hum");
+        u8g.drawStr(50,12,"Tem");
+        u8g.drawStr(0,40,humi_char);  //湿度
+        u8g.drawStr(50,40,temp_char);     //温度
+    }
+    while(u8g.nextPage());
+    smoke_density = analogRead(mq2);
+    temper = mydht.readTemperature();
+    humidi = mydht.readHumidity();
+    itoa(temper,temp_char,10);
+    itoa(humidi,humi_char,10);
+    if(smoke_density > threshold)
+        digitalWrite(buzzer,HIGH);
+    else digitalWrite(buzzer,LOW);
   //先看蓝牙
   if (sws.available())
   {
@@ -277,6 +317,36 @@ void loop()
     case 'b':   //后退
       moveBackward(); 
     return; 
+    case 't':
+        sws.print("temperature: ");
+        sws.print(temper);
+        sws.println(" Celsius degree");
+     return;
+    case 'h':
+        sws.print("humidity: ");
+        sws.print(humidi);
+        sws.println(" %");
+     return;
+     case 's':
+        sws.print("smoke density: ");
+        sws.println(smoke_density);
+    return;
+    case 'y':
+        sws.print("threshold of smoke: ");
+        sws.println(threshold);
+    return;
+    case 'i':
+        threshold += 5;
+        threshold = threshold < 500? threshold : 500;
+        sws.print("threshold has been changed as ");
+        sws.println(threshold);
+    return;
+    case 'e':
+        threshold -= 5;
+        threshold = threshold > 100? threshold : 100;
+        sws.print("threshold has been changed as ");
+        sws.println(threshold);
+    return;
     }
 
   }
@@ -349,9 +419,9 @@ void sit()
   pwm.setPWM(rightBack1, 0, SERVO_BEG_3); 
 
   //蹲下
-  pwm.setPWM(rightFront2, 0, SERVO_BEG_4 + SIT_DEPTH); 
+  pwm.setPWM(rightFront2, 0, SERVO_BEG_4 - SIT_DEPTH); 
   pwm.setPWM(leftFront2, 0, SERVO_BEG_5 + SIT_DEPTH); 
-  pwm.setPWM(leftBack2, 0, SERVO_BEG_6 + SIT_DEPTH); 
+  pwm.setPWM(leftBack2, 0, SERVO_BEG_6 - SIT_DEPTH); 
   pwm.setPWM(rightBack2, 0, SERVO_BEG_7 + SIT_DEPTH); 
 }
 
@@ -375,14 +445,16 @@ void MoveLeg(LegType leg, int vertArg, int levlArg, int direct)
   case LegType::LEFT_BACK: 
     levlLeg = leftBack1; vertLeg = leftBack2; 
     servoBegLevl = SERVO_BEG_2; servoBegVert = SERVO_BEG_6; 
-    levlArg = -levlArg; 
+    //levlArg = -levlArg;   更改说明：后方的腿在移动时，向前与抬腿的pulse变化是相反的，默认向前是正，通过宏修改。下同。
+    vertArg = -vertArg;
     DEAL_LEFT_BACK_LEVL(levlArg); 
     DEAL_LEFT_BACK_VERT(vertArg); 
   break; 
   case LegType::RIGHT_BACK: 
     levlLeg = rightBack1; vertLeg = rightBack2; 
     servoBegLevl = SERVO_BEG_3; servoBegVert = SERVO_BEG_7; 
-    levlArg = -levlArg; 
+    //levlArg = -levlArg; 
+    vertArg = -vertArg;
     DEAL_RIGHT_BACK_LEVL(levlArg); 
     DEAL_RIGHT_BACK_VERT(vertArg); 
   break; 
