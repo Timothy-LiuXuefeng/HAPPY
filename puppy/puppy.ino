@@ -68,40 +68,40 @@ const int rx = 10,tx = 11;
 
 //下面这8个宏代表是否有哪个舵机的安装方向和我写代码默认的方向是反的，如果反了，把对应的宏改成1
 //下面这4个表示控制狗腿水平方向摆动的舵机，默认方向是正方向移动是两条前腿向前，两条后腿向后
-#define RIGHT_FRONT_LEVL_REVERSE 0        //右前腿控制水平移动的，后同
+#define RIGHT_FRONT_LEVL_REVERSE 1        //右前腿控制水平移动的，后同
 #define LEFT_FRONT_LEVL_REVERSE 0
 #define LEFT_BACK_LEVL_REVERSE 0
-#define RIGHT_BACK_LEVL_REVERSE 0
+#define RIGHT_BACK_LEVL_REVERSE 1
 //下面这4个宏表示控制狗腿竖直方向移动的舵机，默认方向是正方向移动狗腿抬起
-#define RIGHT_FRONT_VERT_REVERSE 0        //右前腿控制竖直移动的
+#define RIGHT_FRONT_VERT_REVERSE 1        //右前腿控制竖直移动的
 #define LEFT_FRONT_VERT_REVERSE 0
 #define LEFT_BACK_VERT_REVERSE 0
-#define RIGHT_BACK_VERT_REVERSE 0
+#define RIGHT_BACK_VERT_REVERSE 1
 
 //SERVO_BEG_n表示当狗正常站立时n引脚的参数（数值越大舵机摆动角度越大），须大于零，需要手动调整
-#define SERVO_BEG_0 375
-#define SERVO_BEG_1 375
-#define SERVO_BEG_2 375
-#define SERVO_BEG_3 375
-#define SERVO_BEG_4 400
-#define SERVO_BEG_5 400
-#define SERVO_BEG_6 400
-#define SERVO_BEG_7 400
+#define SERVO_BEG_0 300
+#define SERVO_BEG_1 300
+#define SERVO_BEG_2 300
+#define SERVO_BEG_3 300
+#define SERVO_BEG_4 360
+#define SERVO_BEG_5 280
+#define SERVO_BEG_6 360
+#define SERVO_BEG_7 280
 
 //一条腿移动的时间
 #define ONE_LEG_MOVE_TIME 150
 
 //走路时腿抬起的高度
-#define STEP_HEIGHT 70
+#define STEP_HEIGHT 120
 
 //下蹲的幅度
 #define SIT_DEPTH 100
 
 //走路时一步向前迈的距离
-#define MOVE_DISTANCE 80
+#define MOVE_DISTANCE 140
 
 //走路时每迈一步的间隔时间
-#define STEP_INTERVAL 200
+#define STEP_INTERVAL 500   //origin:200
 
 
 
@@ -349,9 +349,9 @@ void sit()
   pwm.setPWM(rightBack1, 0, SERVO_BEG_3); 
 
   //蹲下
-  pwm.setPWM(rightFront2, 0, SERVO_BEG_4 + SIT_DEPTH); 
+  pwm.setPWM(rightFront2, 0, SERVO_BEG_4 - SIT_DEPTH); 
   pwm.setPWM(leftFront2, 0, SERVO_BEG_5 + SIT_DEPTH); 
-  pwm.setPWM(leftBack2, 0, SERVO_BEG_6 + SIT_DEPTH); 
+  pwm.setPWM(leftBack2, 0, SERVO_BEG_6 - SIT_DEPTH); 
   pwm.setPWM(rightBack2, 0, SERVO_BEG_7 + SIT_DEPTH); 
 }
 
@@ -375,14 +375,16 @@ void MoveLeg(LegType leg, int vertArg, int levlArg, int direct)
   case LegType::LEFT_BACK: 
     levlLeg = leftBack1; vertLeg = leftBack2; 
     servoBegLevl = SERVO_BEG_2; servoBegVert = SERVO_BEG_6; 
-    levlArg = -levlArg; 
+    //levlArg = -levlArg;   更改说明：后方的腿在移动时，向前与抬腿的pulse变化是相反的，默认向前是正，通过宏修改。下同。
+    vertArg = -vertArg;
     DEAL_LEFT_BACK_LEVL(levlArg); 
     DEAL_LEFT_BACK_VERT(vertArg); 
   break; 
   case LegType::RIGHT_BACK: 
     levlLeg = rightBack1; vertLeg = rightBack2; 
     servoBegLevl = SERVO_BEG_3; servoBegVert = SERVO_BEG_7; 
-    levlArg = -levlArg; 
+    //levlArg = -levlArg; 
+    vertArg = -vertArg;
     DEAL_RIGHT_BACK_LEVL(levlArg); 
     DEAL_RIGHT_BACK_VERT(vertArg); 
   break; 
