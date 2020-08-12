@@ -241,7 +241,7 @@ void setup()
   Serial.begin(9600); 
   pinMode(mq2, INPUT);
   pinMode(buzzer, OUTPUT);
-  digitalWrite(buzzer,LOW);    //低电平触发buzzer
+  digitalWrite(buzzer,LOW);    //高电平触发buzzer
   mydht.begin();
   pwm.begin(); 
   pwm.setPWMFreq(PWM_FREQUENCY); 
