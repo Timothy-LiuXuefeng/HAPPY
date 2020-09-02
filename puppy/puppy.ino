@@ -535,6 +535,9 @@ void moveBackward()
 //向左转
 void TurnLeft()
 {
+  //对正
+  stand(); 
+  
   int lastPosLeftFront = MoveLeg(LegType::LEFT_FRONT, STEP_HEIGHT, MOVE_DISTANCE, BACKWARD);   //左前爪
   delay(STEP_INTERVAL / 2); 
   int lastPosRightBack = MoveLeg(LegType::RIGHT_BACK, STEP_HEIGHT, MOVE_DISTANCE, FORWARD);   //右后爪
@@ -602,6 +605,7 @@ void TurnLeft()
   }
  
   delay(STEP_INTERVAL / 2); 
+  stand(); 
 }
 
 //向右转
