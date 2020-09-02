@@ -1,8 +1,8 @@
 #include <Servo.h>
 #include <Adafruit_PWMServoDriver.h>
 #include <SoftwareSerial.h>
-#include<DHT.h>
-#include"U8glib.h"
+#include <DHT.h>
+#include "U8glib.h"
 U8GLIB_SSD1306_128X64 u8g(U8G_I2C_OPT_NONE|U8G_I2C_OPT_DEV_0);
 
 /////////////////////////////////////////////
@@ -103,6 +103,9 @@ char temp_char[10], humi_char[10];
 #define SERVO_BEG_5 280
 #define SERVO_BEG_6 360
 #define SERVO_BEG_7 280
+
+//舵机角度最大值
+#define MAX_VAL 600
 
 //一条腿移动的时间
 #define ONE_LEG_MOVE_TIME 150
@@ -221,8 +224,8 @@ unsigned char msg;  //蓝牙模块接收到的消息
 
 
 
-//运动某只腿
-void MoveLeg(LegType leg, int vertArg, int levlArg, int direct); 
+//运动某只腿，返回运动的水平角度
+int MoveLeg(LegType leg, int vertArg, int levlArg, int direct); 
 //站立/复位
 void stand(); 
 //下蹲
@@ -426,7 +429,7 @@ void sit()
 }
 
 //运动某只腿
-void MoveLeg(LegType leg, int vertArg, int levlArg, int direct)
+int MoveLeg(LegType leg, int vertArg, int levlArg, int direct)
 {
   switch(leg)
   {
@@ -466,6 +469,7 @@ void MoveLeg(LegType leg, int vertArg, int levlArg, int direct)
   delay(ONE_LEG_MOVE_TIME);    //等待移动
   //落腿
   pwm.setPWM(vertLeg, 0, servoBegVert); 
+  return servoBegLevl + levlArg * direct; 
 }
 
 //向前走
@@ -531,19 +535,72 @@ void moveBackward()
 //向左转
 void TurnLeft()
 {
-  MoveLeg(LegType::LEFT_FRONT, STEP_HEIGHT, MOVE_DISTANCE, BACKWARD);   //左前爪
+  int lastPosLeftFront = MoveLeg(LegType::LEFT_FRONT, STEP_HEIGHT, MOVE_DISTANCE, BACKWARD);   //左前爪
   delay(STEP_INTERVAL / 2); 
-  MoveLeg(LegType::RIGHT_BACK, STEP_HEIGHT, MOVE_DISTANCE, FORWARD);   //右后爪
+  int lastPosRightBack = MoveLeg(LegType::RIGHT_BACK, STEP_HEIGHT, MOVE_DISTANCE, FORWARD);   //右后爪
   delay(STEP_INTERVAL / 2); 
-  MoveLeg(LegType::LEFT_BACK, STEP_HEIGHT, MOVE_DISTANCE, BACKWARD);   //左后爪
+  int lastPosLeftBack = MoveLeg(LegType::LEFT_BACK, STEP_HEIGHT, MOVE_DISTANCE, BACKWARD);   //左后爪
   delay(STEP_INTERVAL / 2); 
-  MoveLeg(LegType::RIGHT_FRONT, STEP_HEIGHT, MOVE_DISTANCE, FORWARD);   //右前爪
+  int lastPosRightFront = MoveLeg(LegType::RIGHT_FRONT, STEP_HEIGHT, MOVE_DISTANCE, FORWARD);   //右前爪
   delay(STEP_INTERVAL / 2); 
-  //归正
-  pwm.setPWM(rightFront1, 0, SERVO_BEG_0); 
-  pwm.setPWM(leftFront1, 0, SERVO_BEG_1); 
-  pwm.setPWM(leftBack1, 0, SERVO_BEG_2); 
-  pwm.setPWM(rightBack1, 0, SERVO_BEG_3); 
+
+  int leftFrontStep = (lastPosLeftFront > SERVO_BEG_1) ? -1 : 1; 
+  int rightBackStep = (lastPosRightBack > SERVO_BEG_3) ? -1 : 1; 
+  int leftBackStep = (lastPosLeftBack > SERVO_BEG_2) ? -1 : 1; 
+  int rightFrontStep = (lastPosRightFront > SERVO_BEG_0) ? -1 : 1; 
+
+  bool finish = false; 
+
+  //逐渐归正
+  while (!finish)
+  {
+    finish = true; 
+    if (lastPosLeftFront != SERVO_BEG_1)
+    {
+      lastPosLeftFront += leftFrontStep; 
+      if (lastPosLeftFront < 0) lastPosLeftFront = 0; 
+      else if (lastPosLeftFront > MAX_VAL) lastPosLeftFront = MAX_VAL; 
+      else 
+      {
+        finish = false; 
+        pwm.setPWM(leftFront1, 0, lastPosLeftFront); 
+      }
+    }
+    if (lastPosRightBack != SERVO_BEG_3)
+    {
+      lastPosRightBack += rightBackStep; 
+      if (lastPosRightBack < 0) lastPosRightBack = 0; 
+      else if (lastPosRightBack > MAX_VAL) lastPosRightBack = MAX_VAL; 
+      else 
+      {
+        finish = false; 
+        pwm.setPWM(rightBack1, 0, lastPosRightBack); 
+      }
+    }
+    if (lastPosLeftBack != SERVO_BEG_2)
+    {
+      lastPosLeftBack += leftBackStep; 
+      if (lastPosLeftBack < 0) lastPosLeftBack = 0; 
+      else if (lastPosLeftBack > MAX_VAL) lastPosLeftBack = MAX_VAL; 
+      else 
+      {
+        finish = false; 
+        pwm.setPWM(leftBack1, 0, lastPosLeftBack); 
+      }
+    }
+    if (lastPosRightFront != SERVO_BEG_0)
+    {
+      lastPosRightFront += rightFrontStep; 
+      if (lastPosRightFront < 0) lastPosRightFront = 0; 
+      else if (lastPosRightFront > MAX_VAL) lastPosRightFront = MAX_VAL; 
+      else 
+      {
+        finish = false; 
+        pwm.setPWM(rightFront1, 0, lastPosRightFront); 
+      }
+    }
+  }
+ 
   delay(STEP_INTERVAL / 2); 
 }
 
